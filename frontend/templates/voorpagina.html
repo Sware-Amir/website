@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - SecureCloud</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.05);
+            }
+        }
+        
+        @keyframes shimmer {
+            0% {
+                background-position: -1000px 0;
+            }
+            100% {
+                background-position: 1000px 0;
+            }
+        }
+        
+        .animate-slide-down {
+            animation: slideDown 0.5s ease-out;
+        }
+        
+        .animate-slide-up {
+            animation: slideUp 0.5s ease-out;
+        }
+        
+        .drop-zone-active {
+            background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+            border-color: #3b82f6;
+            transform: scale(1.02);
+        }
+        
+        .file-icon-pdf { color: #ef4444; }
+        .file-icon-doc { color: #2563eb; }
+        .file-icon-img { color: #10b981; }
+        .file-icon-zip { color: #f59e0b; }
+        .file-icon-default { color: #6b7280; }
+        
+        .toast {
+            animation: slideDown 0.3s ease-out;
+        }
+        
+        .toast.removing {
+            animation: slideUp 0.3s ease-out forwards;
+        }
+        
+        .shimmer {
+            background: linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 50%, #f3f4f6 100%);
+            background-size: 1000px 100%;
+            animation: shimmer 2s infinite;
+        }
+        
+        .progress-bar-animate {
+            transition: width 0.3s ease-out;
+        }
+        
+        .file-row {
+            transition: all 0.2s ease;
+        }
+        
+        .file-row:hover {
+            background-color: #f9fafb;
+            transform: translateX(4px);
+        }
+        
+        .storage-meter {
+            transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-gray-50 to-blue-50 min-h-screen">
+
+    <!-- Toast Notifications Container -->
+    <div id="toast-container" class="fixed top-4 right-4 z-50 space-y-2"></div>
+
+    <!-- Navigation -->
+    <nav class="bg-white/80 backdrop-blur-lg border-b border-gray-200 sticky top-0 z-40 shadow-sm animate-slide-down">
+        <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center shadow-lg">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                    </svg>
+                </div>
+                <h1 class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent">SecureCloud</h1>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-lg">
+                    <div class="w-8 h-8 bg-gradient-to-br from-blue-600 to-blue-700 rounded-full flex items-center justify-center text-white font-semibold">
+                        {{ username[0].upper() }}
+                    </div>
+                    <span class="text-gray-700 font-medium">{{ username }}</span>
+                </div>
+                <a href="{{ url_for('auth.logout') }}" class="px-4 py-2 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-all duration-200">
+                    Uitloggen
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto px-6 py-8">
+        
+        <!-- Storage Overview with animated meter -->
+        <div class="bg-white rounded-3xl shadow-xl border border-gray-100 p-8 mb-8 animate-slide-up hover:shadow-2xl transition-shadow duration-300" style="animation-delay: 0.1s">
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <h2 class="text-3xl font-bold text-gray-900 mb-2">Opslag Overzicht</h2>
+                    <p class="text-gray-600">Beheer je cloud storage</p>
+                </div>
+                <div class="text-right">
+                    <div class="flex items-baseline gap-1">
+                        <p class="text-5xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent">{{ used_storage_gb }}</p>
+                        <span class="text-2xl text-gray-600">GB</span>
+                    </div>
+                    <p class="text-sm text-gray-600 mt-1">van 15 GB gebruikt</p>
+                </div>
+            </div>
+            
+            <!-- Animated Storage Bar -->
+            <div class="relative w-full bg-gray-100 rounded-full h-6 overflow-hidden shadow-inner">
+                <div class="storage-meter absolute top-0 left-0 h-full bg-gradient-to-r from-blue-500 via-blue-600 to-blue-700 rounded-full flex items-center justify-end px-3" 
+                     style="width: {{ storage_percentage }}%">
+                    <span class="text-xs font-semibold text-white">{{ storage_percentage|int }}%</span>
+                </div>
+            </div>
+            
+            <div class="flex items-center justify-between mt-4 text-sm">
+                <div class="flex items-center gap-2 text-gray-600">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                    </svg>
+                    <span class="font-medium">{{ files_count }} bestanden</span>
+                </div>
+                <div class="flex items-center gap-2 text-green-600 font-medium">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    <span>{{ available_storage_gb }} GB beschikbaar</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Upload Section with drag & drop -->
+        <div class="bg-white rounded-3xl shadow-xl border border-gray-100 p-8 mb-8 animate-slide-up hover:shadow-2xl transition-shadow duration-300" style="animation-delay: 0.2s">
+            <div class="flex items-center gap-3 mb-6">
+                <div class="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                    </svg>
+                </div>
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-900">Bestand Uploaden</h2>
+                    <p class="text-sm text-gray-600">Sleep bestanden of klik om te uploaden</p>
+                </div>
+            </div>
+            
+            <form id="upload-form" enctype="multipart/form-data" method="POST" action="{{ url_for('main.upload') }}">
+                <div class="border-3 border-dashed border-gray-300 rounded-2xl p-12 text-center hover:border-blue-500 transition-all duration-300 cursor-pointer group" id="drop-zone">
+                    <div class="group-hover:scale-110 transition-transform duration-300">
+                        <svg class="w-20 h-20 text-gray-400 group-hover:text-blue-500 mx-auto mb-4 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                        </svg>
+                    </div>
+                    <p class="text-xl font-semibold text-gray-700 mb-2">Sleep bestanden hierheen</p>
+                    <p class="text-gray-500 mb-1">of klik om te bladeren</p>
+                    <p class="text-sm text-gray-400">Maximaal 100 MB per bestand</p>
+                    <input type="file" id="file-input" name="file" class="hidden" multiple>
+                </div>
+
+                <div id="file-list" class="mt-6 space-y-3"></div>
+
+                <button type="submit" id="upload-btn" class="mt-6 w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-300 font-semibold text-lg shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group" disabled>
+                    <svg class="w-5 h-5 group-hover:translate-y-[-2px] transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                    </svg>
+                    <span>Upload Bestand</span>
+                </button>
+            </form>
+
+            <div id="upload-progress" class="hidden mt-6 p-4 bg-blue-50 rounded-xl">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-sm font-medium text-gray-700">Uploaden...</span>
+                    <span class="text-sm font-bold text-blue-600" id="progress-text">0%</span>
+                </div>
+                <div class="w-full bg-blue-200 rounded-full h-3 overflow-hidden">
+                    <div id="progress-bar" class="progress-bar-animate bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Files List with better UI -->
+        <div class="bg-white rounded-3xl shadow-xl border border-gray-100 p-8 animate-slide-up" style="animation-delay: 0.3s">
+            <div class="flex items-center justify-between mb-6">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-900">Mijn Bestanden</h2>
+                        <p class="text-sm text-gray-600">{{ files_count }} bestanden opgeslagen</p>
+                    </div>
+                </div>
+                <button class="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-all">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"/>
+                    </svg>
+                </button>
+            </div>
+            
+            {% if files %}
+            <div class="space-y-2">
+                {% for file in files %}
+                <div class="file-row flex items-center justify-between p-4 rounded-xl border border-gray-100 hover:shadow-md group">
+                    <div class="flex items-center gap-4 flex-1">
+                        <div class="w-12 h-12 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                            <svg class="w-6 h-6 file-icon-default" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                            </svg>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="font-semibold text-gray-900 truncate">{{ file.filename }}</p>
+                            <div class="flex items-center gap-3 text-sm text-gray-500 mt-1">
+                                <span class="flex items-center gap-1">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                                    </svg>
+                                    {{ file.size }}
+                                </span>
+                                <span class="flex items-center gap-1">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                    </svg>
+                                    {{ file.upload_date }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <a href="{{ url_for('main.download', file_id=file.id) }}" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="Download">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                            </svg>
+                        </a>
+                        <form method="POST" action="{{ url_for('main.delete', file_id=file.id) }}" class="inline" onsubmit="return confirmDelete()">
+                            <button type="submit" class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all" title="Verwijder">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                </svg>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-16">
+                <div class="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+                    </svg>
+                </div>
+                <p class="text-gray-600 text-lg font-medium mb-2">Nog geen bestanden geüpload</p>
+                <p class="text-gray-400">Upload je eerste bestand om te beginnen</p>
+            </div>
+            {% endif %}
+        </div>
+
+    </div>
+
+    <script>
+        // Toast notification system
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            const colors = {
+                success: 'bg-green-500',
+                error: 'bg-red-500',
+                info: 'bg-blue-500'
+            };
+            
+            toast.className = `toast ${colors[type]} text-white px-6 py-4 rounded-xl shadow-lg flex items-center gap-3 min-w-[300px]`;
+            toast.innerHTML = `
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                </svg>
+                <span>${message}</span>
+            `;
+            
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.classList.add('removing');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+        
+        // Drag and drop functionality
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const fileList = document.getElementById('file-list');
+        const uploadBtn = document.getElementById('upload-btn');
+
+        dropZone.addEventListener('click', () => fileInput.click());
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('drop-zone-active');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('drop-zone-active');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drop-zone-active');
+            fileInput.files = e.dataTransfer.files;
+            displayFiles();
+            showToast('Bestand geselecteerd!', 'info');
+        });
+
+        fileInput.addEventListener('change', displayFiles);
+
+        function displayFiles() {
+            fileList.innerHTML = '';
+            const files = fileInput.files;
+            
+            if (files.length > 0) {
+                uploadBtn.disabled = false;
+                Array.from(files).forEach((file, index) => {
+                    const fileSize = (file.size / (1024 * 1024)).toFixed(2);
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl border border-blue-200 animate-slide-up';
+                    fileItem.style.animationDelay = `${index * 0.1}s`;
+                    fileItem.innerHTML = `
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
+                                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="font-semibold text-gray-900">${file.name}</p>
+                                <p class="text-sm text-gray-600">${fileSize} MB</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                            </svg>
+                        </div>
+                    `;
+                    fileList.appendChild(fileItem);
+                });
+            } else {
+                uploadBtn.disabled = true;
+            }
+        }
+
+        // Upload progress
+        const uploadForm = document.getElementById('upload-form');
+        const uploadProgress = document.getElementById('upload-progress');
+        const progressBar = document.getElementById('progress-bar');
+        const progressText = document.getElementById('progress-text');
+
+        uploadForm.addEventListener('submit', (e) => {
+            if (fileInput.files.length === 0) {
+                e.preventDefault();
+                showToast('Selecteer eerst een bestand', 'error');
+                return;
+            }
+            
+            uploadProgress.classList.remove('hidden');
+            uploadBtn.disabled = true;
+            
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += 10;
+                progressBar.style.width = progress + '%';
+                progressText.textContent = progress + '%';
+                
+                if (progress >= 100) {
+                    clearInterval(interval);
+                    showToast('Bestand succesvol geüpload!', 'success');
+                }
+            }, 200);
+        });
+        
+        // Delete confirmation
+        function confirmDelete() {
+            return confirm('Weet je zeker dat je dit bestand wilt verwijderen?');
+        }
+        
+        // Animate storage meter on load
+        window.addEventListener('load', () => {
+            const storageMeter = document.querySelector('.storage-meter');
+            if (storageMeter) {
+                const width = storageMeter.style.width;
+                storageMeter.style.width = '0%';
+                setTimeout(() => {
+                    storageMeter.style.width = width;
+                }, 100);
+            }
+        });
+    </script>
+
+</body>
+</html>
